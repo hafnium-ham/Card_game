@@ -1,3 +1,12 @@
+[package]
+name = "Card_game"
+version = "0.1.0"
+edition = "2021"
+
 [dependencies]
-raylib = "4.5"
-rand = "0.8"
+raylib = "5.0.2"
+
+
+[[bin]]
+name = "Card_game"
+path = "main.rs"
