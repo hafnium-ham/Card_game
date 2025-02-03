@@ -127,7 +127,6 @@ pub fn run_game_window() {
                 let card_height = (screen_height as f32 * 0.2) as i32;
                 
                 for (i, card) in drawn_cards.iter().enumerate() {
-                    println!("{}", card.name().to_string());
                     if let Some(texture) = card_textures.get(&card.name().to_string()) {
                         let mut x = 50 + (i as i32) * (card_width + 20);
                         let mut y = screen_height - card_height - 50;
