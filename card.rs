@@ -36,7 +36,7 @@ impl Card {
         let value_name = match self.value {
             1 => "ace".to_string(),
             11 => "jack".to_string(),
-            12 => "gueen".to_string(),
+            12 => "queen".to_string(),
             13 => "king".to_string(),
             _ => self.value.to_string(),
         };

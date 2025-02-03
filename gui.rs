@@ -127,9 +127,15 @@ pub fn run_game_window() {
                 let card_height = (screen_height as f32 * 0.2) as i32;
                 
                 for (i, card) in drawn_cards.iter().enumerate() {
+                    println!("{}", card.name().to_string());
                     if let Some(texture) = card_textures.get(&card.name().to_string()) {
-                        let x = 100 + (i as i32) * (card_width + 20);
-                        let y = screen_height - card_height - 50;
+                        let mut x = 50 + (i as i32) * (card_width + 20);
+                        let mut y = screen_height - card_height - 50;
+                        if i > 6{
+                            x = 50 + ((i as i32) % 7) * (card_width + 20);
+                            y = screen_height - card_height - 50 + 20 * ((i as i32) / 7);
+                        }
+                            
                         d.draw_texture_pro(
                             texture,
                             Rectangle { x: 0.0, y: 0.0, width: texture.width() as f32, height: texture.height() as f32 },
