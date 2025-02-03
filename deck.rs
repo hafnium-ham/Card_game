@@ -1,4 +1,6 @@
 use rand::seq::SliceRandom;
+use crate::card::Card;
+use crate::card::Suit;
 
 pub struct Deck {
     cards: Vec<Card>,
