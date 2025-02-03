@@ -1,5 +1,7 @@
 use raylib::prelude::*;
 use std::collections::HashMap;
+use crate::deck::Deck;  
+
 
 /// Enum to track the current game state
 enum GameState {
@@ -48,6 +50,11 @@ pub fn run_game_window() {
 
     let mut game_state = GameState::StartScreen;
     let card_textures = load_card_textures(&mut rl, &thread);
+    let deck_texture = rl.load_texture(&thread, "assets/deck.png").unwrap();
+    
+    let mut deck = Deck::new();
+    deck.shuffle();
+    let mut drawn_cards = Vec::new();
 
     while !rl.window_should_close() {
         let mouse_pos = rl.get_mouse_position();
@@ -82,15 +89,45 @@ pub fn run_game_window() {
             GameState::Playing => {
                 d.draw_text("Game in Progress...", 250, 50, 25, Color::DARKGRAY);
                 
-                // Example rendering of some cards
-                let example_cards = vec!["10_hearts", "jack_spades", "queen_diamonds", "king_clubs"];
+                // Draw deck
+                let deck_x = 50;
+                let deck_y = 250;
+                let deck_width = 100;
+                let deck_height = 150;
+
+                let is_hovered = mouse_pos.x > deck_x as f32
+                && mouse_pos.x < (deck_x + deck_width) as f32
+                && mouse_pos.y > deck_y as f32
+                && mouse_pos.y < (deck_y + deck_height) as f32;
+
+                d.draw_texture_pro(
+                    &deck_texture,
+                    Rectangle { x: 0.0, y: 0.0, width: deck_texture.width() as f32, height: deck_texture.height() as f32 },
+                    Rectangle { x: deck_x as f32, y: deck_y as f32, width: deck_width as f32, height: deck_height as f32 },
+                    Vector2::new(0.0, 0.0),
+                    0.0,
+                    if is_hovered { Color::LIGHTGRAY } else { Color::GRAY },
+                );
+
+                // Check if deck is clicked
+                let is_deck_clicked = mouse_clicked &&
+                    mouse_pos.x > deck_x as f32 && mouse_pos.x < (deck_x + deck_width) as f32 &&
+                    mouse_pos.y > deck_y as f32 && mouse_pos.y < (deck_y + deck_height) as f32;
+                
+                if is_deck_clicked {
+                    if let Some(card) = deck.draw() {
+                        drawn_cards.push(card);
+                    }
+                }
+
+                // Render drawn cards
                 let screen_width = d.get_screen_width();
                 let screen_height = d.get_screen_height();
                 let card_width = (screen_width as f32 * 0.1) as i32;
                 let card_height = (screen_height as f32 * 0.2) as i32;
                 
-                for (i, card_key) in example_cards.iter().enumerate() {
-                    if let Some(texture) = card_textures.get(&card_key.to_string()) {
+                for (i, card) in drawn_cards.iter().enumerate() {
+                    if let Some(texture) = card_textures.get(&card.name().to_string()) {
                         let x = 100 + (i as i32) * (card_width + 20);
                         let y = screen_height - card_height - 50;
                         d.draw_texture_pro(
