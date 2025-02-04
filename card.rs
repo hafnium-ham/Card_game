@@ -4,6 +4,8 @@ pub enum Suit {
     Diamonds,
     Clubs,
     Spades,
+    Black,
+    Red,
 }
 
 #[derive(Debug, Clone)]
@@ -21,6 +23,8 @@ impl fmt::Display for Suit {
             Suit::Diamonds => "diamonds",
             Suit::Clubs => "clubs",
             Suit::Spades => "spades",
+            Suit::Black => "black",
+            Suit::Red => "red",
         };
         write!(f, "{}", suit_str)
     }
@@ -38,6 +42,7 @@ impl Card {
             11 => "jack".to_string(),
             12 => "queen".to_string(),
             13 => "king".to_string(),
+            14 => "joker".to_string(),
             _ => self.value.to_string(),
         };
         format!("{}_{}", value_name, self.suit)

@@ -14,11 +14,11 @@ type CardTextures = HashMap<String, Texture2D>;
 
 /// Function to load all card images
 fn load_card_textures(rl: &mut RaylibHandle, thread: &RaylibThread) -> CardTextures {
-    let suits = ["hearts", "diamonds", "clubs", "spades"];
+    let suits = ["hearts", "diamonds", "clubs", "spades", "red", "black"];
     let values = [
-        "2", "3", "4", "5", "6", "7", "8", "9", "10", "jack", "queen", "king", "ace",
+        "2", "3", "4", "5", "6", "7", "8", "9", "10", "jack", "queen", "king", "ace", "joker"
     ];
-    let jokers = ["red_joker", "black_joker"];
+    // let jokers = ["red_joker", "black_joker"];
     
     let mut textures = HashMap::new();
     
@@ -31,12 +31,12 @@ fn load_card_textures(rl: &mut RaylibHandle, thread: &RaylibThread) -> CardTextu
         }
     }
     
-    for &joker in &jokers {
-        let filename = format!("assets/{}.png", joker);
-        if let Ok(texture) = rl.load_texture(&thread, &filename) {
-            textures.insert(joker.to_string(), texture);
-        }
-    }
+    // for &joker in &jokers {
+    //     let filename = format!("assets/{}.png", joker);
+    //     if let Ok(texture) = rl.load_texture(&thread, &filename) {
+    //         textures.insert(joker.to_string(), texture);
+    //     }
+    // }
     
     textures
 }
@@ -95,7 +95,7 @@ pub fn run_game_window() {
                 let deck_width = 100;
                 let deck_height = 150;
 
-                let is_hovered = mouse_pos.x > deck_x as f32
+                let is_deck_hovered = mouse_pos.x > deck_x as f32
                 && mouse_pos.x < (deck_x + deck_width) as f32
                 && mouse_pos.y > deck_y as f32
                 && mouse_pos.y < (deck_y + deck_height) as f32;
@@ -106,7 +106,7 @@ pub fn run_game_window() {
                     Rectangle { x: deck_x as f32, y: deck_y as f32, width: deck_width as f32, height: deck_height as f32 },
                     Vector2::new(0.0, 0.0),
                     0.0,
-                    if is_hovered { Color::LIGHTGRAY } else { Color::GRAY },
+                    if is_deck_hovered { Color::LIGHTGRAY } else { Color::GRAY },
                 );
 
                 // Check if deck is clicked
@@ -126,22 +126,51 @@ pub fn run_game_window() {
                 let card_width = (screen_width as f32 * 0.1) as i32;
                 let card_height = (screen_height as f32 * 0.2) as i32;
                 
+
+                let mut hovered_index: Option<usize> = None;
+
+                // First pass: Find the topmost hovered card
                 for (i, card) in drawn_cards.iter().enumerate() {
                     if let Some(texture) = card_textures.get(&card.name().to_string()) {
                         let mut x = 50 + (i as i32) * (card_width + 20);
                         let mut y = screen_height - card_height - 50;
-                        if i > 6{
+                        
+                        if i > 6 {
                             x = 50 + ((i as i32) % 7) * (card_width + 20);
                             y = screen_height - card_height - 50 + 20 * ((i as i32) / 7);
                         }
-                            
+
+                        let is_card_hovered = mouse_pos.x > x as f32
+                            && mouse_pos.x < (x + card_width) as f32
+                            && mouse_pos.y > y as f32
+                            && mouse_pos.y < (y + card_height) as f32;
+                        
+                        if is_card_hovered {
+                            hovered_index = Some(i); // Store the index of the topmost hovered card
+                        }
+                    }
+                }
+
+                // Second pass: Draw all cards, but highlight only the topmost hovered one
+                for (i, card) in drawn_cards.iter().enumerate() {
+                    if let Some(texture) = card_textures.get(&card.name().to_string()) {
+                        let mut x = 50 + (i as i32) * (card_width + 20);
+                        let mut y = screen_height - card_height - 50;
+                        
+                        if i > 6 {
+                            x = 50 + ((i as i32) % 7) * (card_width + 20);
+                            y = screen_height - card_height - 50 + 20 * ((i as i32) / 7);
+                        }
+
+                        let is_topmost_hovered = Some(i) == hovered_index;
+
                         d.draw_texture_pro(
                             texture,
                             Rectangle { x: 0.0, y: 0.0, width: texture.width() as f32, height: texture.height() as f32 },
                             Rectangle { x: x as f32, y: y as f32, width: card_width as f32, height: card_height as f32 },
                             Vector2::new(0.0, 0.0),
                             0.0,
-                            Color::WHITE,
+                            if is_topmost_hovered { Color::LIGHTGRAY } else { Color::WHITE },
                         );
                     }
                 }

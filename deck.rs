@@ -14,6 +14,8 @@ impl Deck {
                 cards.push(Card::new(suit.clone(), value));
             }
         }
+        cards.push(Card::new(Suit::Black, 14));
+        cards.push(Card::new(Suit::Red, 14));
         Self { cards }
     }
 
