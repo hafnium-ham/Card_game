@@ -136,9 +136,12 @@ pub fn run_game_window() {
                         let mut y = screen_height - card_height - 50;
                         
                         if i > 6 {
-                            x = 50 + ((i as i32) % 7) * (card_width + 20);
-                            y = screen_height - card_height - 50 + 20 * ((i as i32) / 7);
+                            let row = (i as i32) / 7;
+                            let x_offset = if row % 2 == 1 { 50 } else { 0 }; // Shift every other row
+                            x = 50 + ((i as i32) % 7) * (card_width + 20) + x_offset;
+                            y = screen_height - card_height - 50 + 20 * row;
                         }
+                        
 
                         let is_card_hovered = mouse_pos.x > x as f32
                             && mouse_pos.x < (x + card_width) as f32
@@ -158,8 +161,10 @@ pub fn run_game_window() {
                         let mut y = screen_height - card_height - 50;
                         
                         if i > 6 {
-                            x = 50 + ((i as i32) % 7) * (card_width + 20);
-                            y = screen_height - card_height - 50 + 20 * ((i as i32) / 7);
+                            let row = (i as i32) / 7;
+                            let x_offset = if row % 2 == 1 { 50 } else { 0 }; // Shift every other row
+                            x = 50 + ((i as i32) % 7) * (card_width + 20) + x_offset;
+                            y = screen_height - card_height - 50 + 20 * row;
                         }
 
                         let is_topmost_hovered = Some(i) == hovered_index;
