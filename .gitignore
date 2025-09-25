@@ -1,0 +1,39 @@
+# Node.js
+node_modules/
+.env
+.DS_Store
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Logs
+logs/
+*.log
+
+# OS
+Thumbs.db
+
+# Build output
+dist/
+build/
+
+# Editor
+.vscode/
+.idea/
+
+# Misc
+*.swp
+*.swo
+
+# Ignore coverage reports
+coverage/
+
+# Ignore local environment files
+.env.*
+
+# Ignore Mac system files
+.DS_Store
+
+# Ignore by convention
+client/.env
+server/.env
