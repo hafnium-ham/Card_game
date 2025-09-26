@@ -1,38 +1,44 @@
-.App {
-  text-align: center;
-}
+.root{ height: 100%; }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+:root{
+  --bg: #0b1220;
+  --panel: #0f1724;
+  --accent: #48b3ff;
 }
+body, #root { height: 100%; }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
+div { color: #000000; font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial; }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
+.center-area{ display:flex; justify-content:center; align-items:center; padding:24px; }
+.discard img{ width:150px; height:auto; border-radius:6px; box-shadow: 0 6px 18px rgba(0,0,0,0.6); }
 
-.App-link {
-  color: #61dafb;
-}
+.draw-pile{ margin-left:24px; position:relative; cursor:pointer; }
+.draw-pile img{ width:120px; border-radius:6px; box-shadow: 0 6px 18px rgba(0,0,0,0.4); }
+.draw-count{ position:absolute; bottom:6px; right:6px; background:rgba(255,255,255,0.9); color:#000; padding:2px 6px; border-radius:8px; font-weight:600; font-size:12px; }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
+.hand-row{ position:fixed; bottom:16px; left:0; right:0; display:flex; justify-content:center; gap:10px; padding:8px; }
+.card{ width:100px; height:auto; cursor:pointer; border-radius:6px; transition: transform 160ms ease; }
+.card:hover{ transform: translateY(-6px) scale(1.02); }
+
+.json-panel{ position:fixed; top:70px; right:16px; width:360px; max-height:60vh; overflow:auto; background:#faf9f6; color:#333; padding:12px; border-radius:8px; box-shadow: 0 6px 20px rgba(0,0,0,0.08); font-family: monospace; font-size:12px; }
+
+.chat-box input{ padding:6px; border-radius:6px; border:1px solid #ccc; }
+.chat-box button{ padding:6px 8px; border-radius:6px; border:1px solid #999; background:#eee; }
+
+/* small responsive */
+@media (max-width:600px){ .card{ width:72px; } .discard img{ width:120px; } .json-panel{ width:92vw; left:4vw; right:4vw; } }
+
+/* Attempt visuals */
+.attempt-card{ transform: scale(1.05) rotate(-4deg); box-shadow: 0 12px 30px rgba(0,0,0,0.6); border: 2px solid rgba(255,255,255,0.6); }
+
+/* Players arranged around the center */
+.players-circle{ position:relative; width:480px; height:320px; margin: 0 auto 12px; }
+.player-node{ position:absolute; width:120px; height:40px; display:flex; align-items:center; justify-content:center; transform-origin: center center; }
+.player-node .player-ring{ width:28px; height:28px; border-radius:50%; border:3px solid #ccc; background:rgba(255,255,255,0.06); margin-right:8px; }
+.player-node .player-name{ background:#fff; color:#111; padding:6px 10px; border-radius:8px; font-weight:600; box-shadow: 0 6px 18px rgba(0,0,0,0.08); }
+.player-node.active .player-ring{ border-color: #48b3ff; box-shadow: 0 4px 12px rgba(72,179,255,0.18); }
+
+/* position players evenly in circle using inline style --idx and total length via JS */
+.player-node{ left:50%; top:50%; }
+
+
