@@ -1,3 +1,11 @@
+.DS_Store
+node_modules/
+client/node_modules/
+server/node_modules/
+/.env
+# Ignore these generated or local documentation files per user's request
+PROJECT_SUMMARY.md
+RULES_CHECKLIST.md
 # Node.js
 node_modules/
 .env
