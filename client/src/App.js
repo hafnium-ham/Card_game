@@ -32,9 +32,11 @@ export default function App() {
   const [name, setName] = useState("");
   const [numDecks, setNumDecks] = useState(1);
   const [direction, setDirection] = useState("cw");
+  const [singWindowSec, setSingWindowSec] = useState(10);
   const [creatingRoom, setCreatingRoom] = useState(false);
   const [showJson, setShowJson] = useState(false);
   const [privateHand, setPrivateHand] = useState([]);
+  const [isHost, setIsHost] = useState(false);
   const [optimisticCenter, setOptimisticCenter] = useState(null);
   const [latestAttempt, setLatestAttempt] = useState(null); // show any player's attempted play
   const pendingPlayRef = useRef(null);
@@ -107,6 +109,7 @@ export default function App() {
       setGame(null);
       setPrivateHand([]);
       setRoomId(null);
+      setIsHost(false);
       alert('Room closed: ' + (info?.reason || 'closed'));
     });
     socket.on('chat', (msg) => {
@@ -126,15 +129,25 @@ export default function App() {
   const ASSET_BASE = 'http://localhost:3001/assets';
   const [chat, setChat] = useState([]);
   const [chatText, setChatText] = useState('');
+  const [testOpen, setTestOpen] = useState(false);
 
   function beginCreateRoom() {
     setCreatingRoom(true);
   }
 
   function confirmCreateRoom() {
-    const payload = { playerName: name || "Host", settings: { numDecks: Number(numDecks) || 1, direction } };
+    const payload = { playerName: name || "Host", settings: { numDecks: Number(numDecks) || 1, direction, singWindowMs: (Number(singWindowSec) || 10) * 1000 } };
     socket.emit("create_room", payload, (res) => {
-      if (res && res.roomId) setRoomId(res.roomId);
+      if (res && res.roomId) {
+        setRoomId(res.roomId);
+        setIsHost(true);
+        if (res.game_state) {
+          // ensure the creator is recognized as host immediately so host-only
+          // controls (Start Game) render without a race against the next
+          // server-sent `game_state` event
+          setGame({ ...res.game_state, hostId: socket.id });
+        }
+      }
       else {
         console.error("Failed to create room", res);
         alert("Failed to create room");
@@ -153,11 +166,31 @@ export default function App() {
     socket.emit("join_room", { roomId: id, playerName: name || "Player" }, (res) => {
       if (!res || res.error) return alert(res?.error || "Failed to join");
       setRoomId(id);
+      setIsHost(false);
+      if (res.game_state) setGame(res.game_state);
     });
   }
 
   function startGame() {
     socket.emit("start_game", { roomId }, (res) => {
+      if (res && res.error) alert(res.error);
+    });
+  }
+
+  function selectSuit(suit) {
+    socket.emit('select_suit', { roomId, suit }, (res) => {
+      if (res && res.error) alert(res.error);
+    });
+  }
+
+  function knock() {
+    socket.emit('knock', { roomId }, (res) => {
+      if (res && res.error) alert(res.error);
+    });
+  }
+
+  function sing() {
+    socket.emit('sing', { roomId }, (res) => {
       if (res && res.error) alert(res.error);
     });
   }
@@ -212,6 +245,7 @@ export default function App() {
     setRoomId(null);
     setGame(null);
     setPrivateHand([]);
+    setIsHost(false);
   }
 
   return (
@@ -270,6 +304,10 @@ export default function App() {
               </div>
 
               <div style={{ marginTop: 12 }}>
+                <label style={{ display:'block', marginBottom:8 }}>
+                  Sing window (seconds):
+                  <input type="number" min={1} value={singWindowSec} onChange={(e)=>setSingWindowSec(Number(e.target.value))} style={{ width:60, marginLeft:8 }} />
+                </label>
                 <button onClick={confirmCreateRoom}>Confirm</button>
                 <button onClick={cancelCreateRoom} style={{ marginLeft: 8 }}>
                   Cancel
@@ -285,8 +323,9 @@ export default function App() {
           <div className="center-area">
             <div className="discard">
                 {/* show server visibleTop first (most authoritative for display), fallback to transient/latestAttempt, then private optimistic */}
-                {game?.visibleTop ? (
-                  <img src={`${ASSET_BASE}/${cardFilename(game.visibleTop)}`} alt={game.visibleTop} className={latestAttempt ? 'attempt-card' : ''} />
+                { (game?.visibleTop || game?.discardTop) ? (
+                  // prefer visibleTop (transient attempt), otherwise canonical discardTop
+                  <img src={`${ASSET_BASE}/${cardFilename(game.visibleTop || game.discardTop)}`} alt={game.visibleTop || game.discardTop} className={latestAttempt ? 'attempt-card' : ''} />
                 ) : latestAttempt ? (
                   <img src={`${ASSET_BASE}/${cardFilename(latestAttempt.card)}`} alt={latestAttempt.card} className="attempt-card" />
                 ) : optimisticCenter ? (
@@ -308,6 +347,17 @@ export default function App() {
             {game && socket.id === game.hostId && !game.started && (
               <button onClick={startGame} style={{ marginLeft: 8 }}>Start Game (host)</button>
             )}
+            {/* Suit/Knock/Sing controls available to all players at any time - use images from assets */}
+            <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <img className="control-icon" src={`${ASSET_BASE}/club.png`} alt="clubs" title="Select Clubs" onClick={() => selectSuit('Clubs')} />
+              <img className="control-icon" src={`${ASSET_BASE}/diamond.png`} alt="diamonds" title="Select Diamonds" onClick={() => selectSuit('Diamonds')} />
+              <img className="control-icon" src={`${ASSET_BASE}/heart.png`} alt="hearts" title="Select Hearts" onClick={() => selectSuit('Hearts')} />
+              <img className="control-icon" src={`${ASSET_BASE}/spade.png`} alt="spades" title="Select Spades" onClick={() => selectSuit('Spades')} />
+              <img className="control-icon" src={`${ASSET_BASE}/knock.jpg`} alt="knock" title="Knock" onClick={knock} style={{ marginLeft:12 }} />
+              <img className="control-icon" src={`${ASSET_BASE}/sing.jpg`} alt="sing" title="Sing" onClick={sing} />
+
+              {/* Test panel placeholder (moved to bottom-right) */}
+            </div>
           </div>
 
           {showJson && <pre className="json-panel">{JSON.stringify(game, null, 2)}</pre>}
@@ -316,7 +366,7 @@ export default function App() {
             <button onClick={leaveRoom}>Exit / Quit Game</button>
           </div>
 
-          <div className="chat-box" style={{ position: 'fixed', left: 16, bottom: 16, width: 320 }}>
+          <div className="chat-box">
             <div style={{ maxHeight: 200, overflow: 'auto', background: '#fff', color:'#222', padding:8, borderRadius:6 }}>
               {chat.map((m, i) => (
                 <div key={i} style={{ padding: 4, borderBottom: '1px solid #eee' }}><strong>{m.from}:</strong> {m.message}</div>
@@ -352,15 +402,66 @@ export default function App() {
           </div>
 
           <div className="hand-row">
-            {privateHand.map((c, i) => (
-              <img key={`${c}_${i}`} className="card" src={`${ASSET_BASE}/${cardFilename(c)}`} alt={c} onClick={() => playCardOptimistic(i)} />
-            ))}
+          {showJson && <pre className="json-panel">{JSON.stringify(game, null, 2)}</pre>}
+            <div className="hand-stack" style={{ width: Math.min(120 * privateHand.length, 900) }}>
+              {privateHand.map((c, i) => {
+                // compute left offset so cards overlap; if many cards, make them closer
+                const total = privateHand.length;
+                const maxWidth = Math.min(100 * total, 900);
+                const spacing = total > 10 ? 40 : total > 7 ? 52 : 70;
+                const left = i * spacing;
+                return (
+                  <img
+                    key={`${c}_${i}`}
+                    className="card"
+                    src={`${ASSET_BASE}/${cardFilename(c)}`}
+                    alt={c}
+                    onClick={() => playCardOptimistic(i)}
+                    style={{ left }}
+                  />
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
+      {roomId && <TestPanel roomId={roomId} open={testOpen} onToggle={setTestOpen} />}
     </div>
   );
 }
+
+// (Collapsible test panel rendered as part of the App component tree)
+// We render it here using the same socket and roomId captured by the component via closure.
+// To keep things simple we render the panel markup directly under the root div so it's fixed-positioned by CSS.
+function TestPanel({ roomId, open, onToggle }) {
+  return (
+    <>
+      <div className={`test-panel ${open ? '' : 'hidden'}`}>
+        <h4>Test actions</h4>
+        <button onClick={() => { socket.emit('play_card', { roomId, card: 'XX' }, ()=>{}); }}>Play invalid card</button>
+        <button onClick={() => { socket.emit('test_play_as', { roomId }); }}>Play Ace of Spades (test)</button>
+        <button onClick={() => { socket.emit('test_play_hearts', { roomId }); }}>Play Hearts (test)</button>
+        <button onClick={() => { socket.emit('test_song', { roomId }); }}>Song / Sing (test)</button>
+        <button onClick={() => { socket.emit('test_evil', { roomId }); }}>Evil card (test)</button>
+        <button onClick={() => { socket.emit('test_all_rules', { roomId }); }}>Run all server tests</button>
+      </div>
+      <div className="test-toggle" onClick={() => onToggle(!open)} title={open ? 'Hide tests' : 'Show tests'}>
+        {open ? '▲' : '▶'}
+      </div>
+    </>
+  );
+}
+
+// end of file
+
+// Append test-panel toggle and panel into DOM via portal-like placement under root return
+// (we simply export additional elements after main component render in the same file)
+
+export function TestPanelInline({ roomId }) {
+  // this function is used by App by importing TestPanelInline if needed; but we render a simple static anchor here
+  return null;
+}
+
 
 function cardFilename(code) {
   if (!code) return 'card_back.png';

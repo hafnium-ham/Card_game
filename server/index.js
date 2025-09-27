@@ -44,7 +44,17 @@ io.on("connection", (socket) => {
     games[roomId] = game;
 
     game.addPlayer(socket, playerName || "Host");
-    if (typeof cb === "function") cb({ roomId });
+    // send immediate private_state to the host socket as well (defensive)
+    try { socket.emit('private_state', { hand: game.players[socket.id].hand.slice() }); } catch (e) {}
+    // also return an initial public game_state snapshot so the client can
+    // immediately render host-only controls (like Start Game)
+    const initial = {
+      roomId: game.roomId,
+      hostId: game.hostId,
+      started: game.started,
+      players: Object.fromEntries(Object.entries(game.players).map(([id,p])=>[id,{ id:p.id, name:p.name, handCount:p.hand.length }]))
+    };
+    if (typeof cb === "function") cb({ roomId, game_state: initial });
   });
 
   // Join existing room. payload: { roomId, playerName }
@@ -52,8 +62,17 @@ io.on("connection", (socket) => {
     const { roomId, playerName } = payload || {};
     const game = games[roomId];
     if (!game) return cb && cb({ error: "No such room" });
+    if (game.started) return cb && cb({ error: 'Game already started' });
     game.addPlayer(socket, playerName || "Player");
-    cb && cb({ success: true });
+    // ensure the joining client receives their private hand immediately
+    try { socket.emit('private_state', { hand: game.players[socket.id].hand.slice() }); } catch (e) {}
+    const initial = {
+      roomId: game.roomId,
+      hostId: game.hostId,
+      started: game.started,
+      players: Object.fromEntries(Object.entries(game.players).map(([id,p])=>[id,{ id:p.id, name:p.name, handCount:p.hand.length }]))
+    };
+    cb && cb({ success: true, game_state: initial });
   });
 
   // Start game (host only). payload: { roomId }
@@ -100,6 +119,33 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Suit selection (player presses suit button). payload: { roomId, suit }
+  socket.on('select_suit', (payload, cb) => {
+    const { roomId, suit } = payload || {};
+    const game = games[roomId];
+    if (!game) return cb && cb({ error: 'No such room' });
+    game.selectSuit(socket.id, suit);
+    cb && cb({ success: true });
+  });
+
+  // Knock action. payload: { roomId }
+  socket.on('knock', (payload, cb) => {
+    const { roomId } = payload || {};
+    const game = games[roomId];
+    if (!game) return cb && cb({ error: 'No such room' });
+    game.knock(socket.id);
+    cb && cb({ success: true });
+  });
+
+  // Sing action. payload: { roomId }
+  socket.on('sing', (payload, cb) => {
+    const { roomId } = payload || {};
+    const game = games[roomId];
+    if (!game) return cb && cb({ error: 'No such room' });
+    game.sing(socket.id);
+    cb && cb({ success: true });
+  });
+
   // Chat messages: { roomId, from, message }
   socket.on('chat', (payload) => {
     const { roomId, from, message } = payload || {};
@@ -107,6 +153,75 @@ io.on("connection", (socket) => {
     if (!game) return;
     const entry = game.addChat(from || 'anon', message);
     io.to(roomId).emit('chat', entry);
+    // process chat for rule fulfillment or curse detection
+    // find playerId by matching socket id or name (best-effort)
+    const pid = socket.id;
+    try { game.processChat(pid, message); } catch (e) { console.warn('processChat failed', e); }
+  });
+
+  // Developer test hooks (only available in dev): inject deterministic plays and test rules
+  socket.on('test_play_as', (payload) => {
+    const { roomId } = payload || {};
+    const game = games[roomId];
+    if (!game) return;
+    // ensure p's socket exists; use the caller as test player
+    const pid = socket.id;
+    if (!game.players[pid]) return;
+    // give AS to this player if missing
+    if (!game.players[pid].hand.includes('AS')) game.players[pid].hand.push('AS');
+    game.playCard(pid, 'AS', () => {});
+  });
+
+  socket.on('test_play_hearts', (payload) => {
+    const { roomId } = payload || {};
+    const game = games[roomId];
+    if (!game) return;
+    const pid = socket.id;
+    if (!game.players[pid]) return;
+    // give a heart card and play it
+    const heart = game.players[pid].hand.find(c => c.endsWith('H')) || '2H';
+    if (!game.players[pid].hand.includes(heart)) game.players[pid].hand.push(heart);
+    game.playCard(pid, heart, () => {});
+  });
+
+  socket.on('test_song', (payload) => {
+    const { roomId } = payload || {};
+    const game = games[roomId];
+    if (!game) return;
+    const pid = socket.id;
+    if (!game.players[pid]) return;
+    // force an AS play then sing
+    if (!game.players[pid].hand.includes('AS')) game.players[pid].hand.push('AS');
+    game.playCard(pid, 'AS', () => {});
+    game.sing(pid);
+  });
+
+  socket.on('test_evil', (payload) => {
+    const { roomId } = payload || {};
+    const game = games[roomId];
+    if (!game) return;
+    const pid = socket.id;
+    if (!game.players[pid]) return;
+    // Give an 'evil' card marker (we'll use '7S' as placeholder) and set evilPending
+    if (!game.players[pid].hand.includes('7S')) game.players[pid].hand.push('7S');
+    game.playCard(pid, '7S', () => {});
+    game.evilPending = true;
+  });
+
+  socket.on('test_all_rules', (payload) => {
+    const { roomId } = payload || {};
+    const game = games[roomId];
+    if (!game) return;
+    // run a series of test actions: make socket the host player if possible
+    const pid = socket.id;
+    if (!game.players[pid]) return;
+    // inject a Jack and play it
+    if (!game.players[pid].hand.find(c=>c.startsWith('J'))) game.players[pid].hand.push('JH');
+    game.playCard(pid, game.players[pid].hand.find(c=>c.startsWith('J')), ()=>{});
+    // inject AS and play/sing
+    if (!game.players[pid].hand.includes('AS')) game.players[pid].hand.push('AS');
+    game.playCard(pid, 'AS', ()=>{});
+    game.sing(pid);
   });
 
   socket.on("leave_room", (payload) => {

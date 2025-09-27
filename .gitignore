@@ -45,3 +45,6 @@ coverage/
 # Ignore by convention
 client/.env
 server/.env
+
+# Local flowchart/diagram working files
+docs/game_state_flowchart.md
