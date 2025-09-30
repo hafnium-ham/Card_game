@@ -40,19 +40,20 @@ export default function App() {
   const [optimisticCenter, setOptimisticCenter] = useState(null);
   const [latestAttempt, setLatestAttempt] = useState(null); // show any player's attempted play
   const pendingPlayRef = useRef(null);
+  const [imageCache, setImageCache] = useState(new Map());
 
   useEffect(() => {
     const lastSeqRef = { current: 0 };
     const onGameState = (data) => {
       try {
-        // debug seq
         console.debug('game_state seq=', data.seq, 'room=', data.roomId);
         if (typeof data.seq === 'number' && data.seq <= (lastSeqRef.current || 0)) {
-          // ignore out-of-order older state
           return;
         }
         lastSeqRef.current = data.seq || lastSeqRef.current;
       } catch (e) {}
+      const top = data?.visibleTop || data?.discardTop;
+      if (top) preloadImage(`${ASSET_BASE}/${cardFilename(top)}`);
       setGame(data);
     };
     const onPrivate = (data) => {
@@ -68,9 +69,9 @@ export default function App() {
     socket.on('private_state', onPrivate);
     socket.on('game_over', onOver);
     socket.on('played_attempt', ({ playerId, card }) => {
-      // still keep a transient in case server update is slightly delayed
+      preloadImage(`${ASSET_BASE}/${cardFilename(card)}`);
       setLatestAttempt({ playerId, card });
-      setTimeout(() => setLatestAttempt(null), 2500);
+      setTimeout(() => setLatestAttempt(null), 1800);
     });
     socket.on('play_rejected', ({ playerId, card }) => {
       // if the rejected play was by us and we have an optimistic center, revert it
@@ -248,6 +249,14 @@ export default function App() {
     setIsHost(false);
   }
 
+  function preloadImage(src) {
+    if (!src) return;
+    if (imageCache.has(src)) return;
+    const img = new Image();
+    img.src = src;
+    setImageCache((m) => new Map(m).set(src, true));
+  }
+
   return (
     <div>
       {!roomId ? (
@@ -322,17 +331,22 @@ export default function App() {
 
           <div className="center-area">
             <div className="discard">
-                {/* show server visibleTop first (most authoritative for display), fallback to transient/latestAttempt, then private optimistic */}
-                { (game?.visibleTop || game?.discardTop) ? (
-                  // prefer visibleTop (transient attempt), otherwise canonical discardTop
-                  <img src={`${ASSET_BASE}/${cardFilename(game.visibleTop || game.discardTop)}`} alt={game.visibleTop || game.discardTop} className={latestAttempt ? 'attempt-card' : ''} />
-                ) : latestAttempt ? (
-                  <img src={`${ASSET_BASE}/${cardFilename(latestAttempt.card)}`} alt={latestAttempt.card} className="attempt-card" />
-                ) : optimisticCenter ? (
-                  <img src={`${ASSET_BASE}/${cardFilename(optimisticCenter)}`} alt={optimisticCenter} />
-                ) : (
-                  <img src={`${ASSET_BASE}/card_back.png`} alt={'back'} />
-                )}
+                { (() => {
+                  const top = game?.visibleTop || game?.discardTop;
+                  if (top) {
+                    const src = `${ASSET_BASE}/${cardFilename(top)}`;
+                    return <img key={`top-${top}-${game?.seq ?? ''}`} src={src} alt={top} className={latestAttempt ? 'attempt-card' : ''} />;
+                  }
+                  if (latestAttempt) {
+                    const src = `${ASSET_BASE}/${cardFilename(latestAttempt.card)}`;
+                    return <img key={`attempt-${latestAttempt.card}`} src={src} alt={latestAttempt.card} className="attempt-card" />;
+                  }
+                  if (optimisticCenter) {
+                    const src = `${ASSET_BASE}/${cardFilename(optimisticCenter)}`;
+                    return <img key={`optim-${optimisticCenter}`} src={src} alt={optimisticCenter} />;
+                  }
+                  return <img key="back" src={`${ASSET_BASE}/card_back.png`} alt={'back'} />;
+                })()}
                 <div style={{ position:'absolute', left: -8, top: -16, color:'#fff', fontSize:12 }}>{game?.seq ? `seq:${game.seq}` : ''}</div>
             </div>
 
